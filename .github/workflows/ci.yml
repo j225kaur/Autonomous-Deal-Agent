@@ -1,5 +1,11 @@
 name: ci
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  HAS_GROQ: ${{ secrets.GROQ_API_KEY != '' }}
 
 jobs:
   unit-tests:
@@ -33,8 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
-        env:
-          DOCKER_BUILDKIT: "1"
+        env: { DOCKER_BUILDKIT: "1" }
         run: docker build -t deal-intel -f Dockerfile .
       - name: Network + Redis
         run: |
@@ -44,7 +49,6 @@ jobs:
         run: |
           set -e
           docker run -d --name app --network testnet -p 8000:8000 \
-            -e PYTHONPATH=/app/src \
             -e REDIS_URL=redis://redis:6379/0 \
             -e TICKERS=AAPL,MSFT \
             -e USE_SEC=false \
@@ -53,23 +57,21 @@ jobs:
             -e CHAT_MODEL=disabled \
             -e SUMMARY_MODEL=disabled \
             deal-intel
-          # wait up to ~30s for health
           for i in {1..30}; do
             if curl -sf http://localhost:8000/health >/dev/null; then
-              echo "Service healthy"; exit 0
+              echo "Service healthy"; break
             fi
             sleep 1
           done
-          echo "Service did not become healthy"; docker logs app; exit 1
       - name: Smoke test API
         run: |
           curl -sf -X POST http://localhost:8000/run_report \
             -H 'content-type: application/json' \
             -d '{"tickers":"AAPL,MSFT","top_k":5}' | head -c 400
 
-  # Optional LLM job (only runs if a key is present)
+  # Optional LLM job; SKIPS automatically if secret not set or on forked PRs
   model-smoke:
-    if: ${{ secrets.GROQ_API_KEY != '' }}
+    if: ${{ env.HAS_GROQ == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,7 +90,6 @@ jobs:
         run: |
           set -e
           docker run -d --name app --network testnet -p 8000:8000 \
-            -e PYTHONPATH=/app/src \
             -e REDIS_URL=redis://redis:6379/0 \
             -e TICKERS=AAPL,MSFT \
             -e USE_SEC=false \
@@ -105,6 +106,8 @@ jobs:
             fi
             sleep 1
           done
+      - name: LLM smoke call
+        run: |
           curl -sf -X POST http://localhost:8000/run_report \
             -H 'content-type: application/json' \
             -d '{"tickers":"AAPL,MSFT","top_k":4}' | head -c 400
