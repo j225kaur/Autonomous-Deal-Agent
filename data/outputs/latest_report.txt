@@ -1,0 +1,4 @@
+Daily Deal Report (2025-10-13T21:26:10.757566+00:00)
+
+Findings:
+{"model": "rule-based", "items": []}

@@ -3,7 +3,7 @@ BaseAgent: shared utilities for all agents (logging, short/long-term memory hook
 """
 from __future__ import annotations
 from typing import Dict, Any
-from utils.io import get_logger
+from src.utils.io import get_logger
 
 class BaseAgent:
     def __init__(self, name: str):

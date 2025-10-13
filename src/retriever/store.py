@@ -30,21 +30,26 @@ def build_or_load_index(documents: List[Document], index_dir: str = DEFAULT_INDE
     ensure_dir(index_dir)
     emb = EMB()
     try:
-        vs = FAISS.load_local(index_dir, emb, allow_dangerous_deserialization=True)
-        if documents:
-            vs.add_documents(documents)
+        vs = FAISS.load_local(index_dir, emb)
     except Exception:
-        vs = FAISS.from_documents(documents or [Document(page_content="init", metadata={"init": True})], emb)
-        if not documents:
-            # delete init doc
-            try:
-                vs.delete(vs.index_to_docstore_id[0])
-            except Exception:
-                pass
+        # build a fresh index
+        if documents:
+            vs = FAISS.from_documents(documents, emb)
+        else:
+            vs = FAISS.from_texts(["init"], embedding=emb, metadatas=[{"init": True}])
+            # optionally delete the init doc after save
     vs.save_local(index_dir)
     return vs
 
 def as_retriever(k: int = 12, index_dir: str = DEFAULT_INDEX_DIR):
     emb = EMB()
-    vs = FAISS.load_local(index_dir, emb, allow_dangerous_deserialization=True)
+    try:
+        vs = FAISS.load_local(index_dir, emb, allow_dangerous_deserialization=True)
+    except Exception:
+        # If the index doesn't exist yet (common on first run or in CI),
+        # create a minimal index so callers can still perform searches.
+        ensure_dir(index_dir)
+        # create a tiny placeholder index
+        vs = FAISS.from_texts(["init"], embedding=emb, metadatas=[{"init": True}])
+        vs.save_local(index_dir)
     return vs.as_retriever(search_kwargs={"k": k})

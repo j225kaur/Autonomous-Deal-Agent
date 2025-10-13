@@ -10,10 +10,10 @@ import json
 import re
 
 from langchain_core.documents import Document
-from agents.base import BaseAgent
-from memory.redis_memory import RedisMemory
-from memory.vector_memory import VectorMemory
-from models.adapters import get_chat_model
+from src.agents.base_agent import BaseAgent
+from src.memory.redis_memory import RedisMemory
+from src.memory.vector_memory import VectorMemory
+from src.models.adapters import get_chat_model
 
 RULES_RX = re.compile(r"(merger|acquisition|buyout|takeover|spin[- ]?off|SPAC)", re.I)
 

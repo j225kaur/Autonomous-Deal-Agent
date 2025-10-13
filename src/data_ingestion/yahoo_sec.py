@@ -84,7 +84,7 @@ def _sec_company_submissions(cik: str) -> Optional[Dict[str, Any]]:
         if resp.status_code == 200:
             return resp.json()
     except Exception:
-        pass
+        return None
     return None
 
 def fetch_sec_filings(ciks: List[str], form_filters: List[str] = None, limit: int = 50) -> List[Dict[str, Any]]:

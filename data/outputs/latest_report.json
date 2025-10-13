@@ -1,0 +1,16 @@
+{
+  "generated_at": "2025-10-13T21:26:10.757566+00:00",
+  "sources": {
+    "tickers": [
+      "AAPL",
+      "MSFT"
+    ],
+    "news_count": 20,
+    "sec_count": 0
+  },
+  "findings": {
+    "model": "rule-based",
+    "items": []
+  },
+  "summary": "Daily Deal Report (2025-10-13T21:26:10.757566+00:00)\n\nFindings:\n{\"model\": \"rule-based\", \"items\": []}"
+}
