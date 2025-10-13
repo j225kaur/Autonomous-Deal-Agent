@@ -123,4 +123,4 @@ jobs:
         run: |
           curl -sf -X POST http://localhost:8000/run_report \
             -H 'content-type: application/json' \
-            -d '{"tickers":"AAPL,MSFT","top_k":4}' | head -c 400
+            -d '{"tickers":"NVDA, AMD, TSLA","top_k":8}' | head -c 400
