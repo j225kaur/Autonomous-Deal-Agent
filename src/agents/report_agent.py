@@ -11,8 +11,8 @@ import os
 import json
 from src.utils.io import ensure_dir, write_text, write_json
 from src.agents.base_agent import BaseAgent
-def get_summarizer():
-    return None
+from src.models.summarizer import get_summarizer
+
 
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "data/outputs")
 
