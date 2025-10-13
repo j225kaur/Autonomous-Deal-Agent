@@ -69,22 +69,34 @@ jobs:
 
   # Optional LLM job; runs only if the secret exists (not on fork PRs without secrets)
   model-smoke:
-    if: ${{ secrets.GROQ_API_KEY != '' }}
     runs-on: ubuntu-latest
+    # Do not set secrets at job-level (linter may flag direct secrets usage). Instead
+    # create a guarded step that loads the secret into the environment when present.
     steps:
       - uses: actions/checkout@v4
+      - name: Load optional GROQ secret
+        # This step safely writes the secret to GITHUB_ENV only if it's available
+        if: ${{ secrets.GROQ_API_KEY != '' }}
+        run: |
+          echo "OPENAI_API_KEY=${{ secrets.GROQ_API_KEY }}" >> $GITHUB_ENV
+          echo "OPENAI_BASE_URL=https://api.groq.com/openai/v1" >> $GITHUB_ENV
+          echo "OPENAI_MODEL=llama-3.1-8b-instant" >> $GITHUB_ENV
       - name: Build image
+        if: ${{ env.OPENAI_API_KEY != '' }}
         env: { DOCKER_BUILDKIT: "1" }
         run: docker build -t deal-intel -f Dockerfile .
       - name: Network + Redis
+        if: ${{ env.OPENAI_API_KEY != '' }}
         run: |
           docker network create testnet
           docker run -d --name redis --network testnet redis:7-alpine
       - name: Run app with Groq (OpenAI-compatible)
+        if: ${{ env.OPENAI_API_KEY != '' }}
         env:
-          OPENAI_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          OPENAI_BASE_URL: https://api.groq.com/openai/v1
-          OPENAI_MODEL: llama-3.1-8b-instant
+          # Use job-level env values
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ env.OPENAI_BASE_URL }}
+          OPENAI_MODEL: ${{ env.OPENAI_MODEL }}
         run: |
           set -e
           docker run -d --name app --network testnet -p 8000:8000 \
@@ -105,6 +117,7 @@ jobs:
             sleep 1
           done
       - name: LLM smoke call
+        if: ${{ env.OPENAI_API_KEY != '' }}
         run: |
           curl -sf -X POST http://localhost:8000/run_report \
             -H 'content-type: application/json' \
