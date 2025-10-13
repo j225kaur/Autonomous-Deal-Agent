@@ -1,11 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: ci
 on:
   push:
   pull_request:
   workflow_dispatch:
-
-env:
-  HAS_GROQ: ${{ secrets.GROQ_API_KEY != '' }}
 
 jobs:
   unit-tests:
@@ -69,9 +67,9 @@ jobs:
             -H 'content-type: application/json' \
             -d '{"tickers":"AAPL,MSFT","top_k":5}' | head -c 400
 
-  # Optional LLM job; SKIPS automatically if secret not set or on forked PRs
+  # Optional LLM job; runs only if the secret exists (not on fork PRs without secrets)
   model-smoke:
-    if: ${{ env.HAS_GROQ == 'true' }}
+    if: ${{ secrets.GROQ_API_KEY != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
