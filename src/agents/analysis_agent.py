@@ -15,6 +15,67 @@ from src.memory.redis_memory import RedisMemory
 from src.memory.vector_memory import VectorMemory
 from src.models.adapters import get_chat_model
 
+
+DEAL_SCHEMA_HINT = """Return ONLY JSON:
+{
+  "deals": [
+    {
+      "type": "acquisition|merger|divestiture|spin-off|spac|tender|strategic_transaction|other",
+      "acquirer": "string|null",
+      "target": "string|null",
+      "tickers": ["..."],
+      "value_usd": "string|null",
+      "status": "rumor|agreement|announced|closed|terminated|other",
+      "evidence": "short quote/headline",
+      "source_link": "url|null"
+    }
+  ],
+  "trend_summary": "2-3 sentences"
+}"""
+
+def _format_ctx(retrieved: List[Dict[str, Any]]) -> str:
+    lines = []
+    for d in retrieved[:8]:
+        meta = d.get("metadata", {})
+        link = meta.get("link", "")
+        src = meta.get("source", "")
+        title = (d.get("page_content") or "").strip().replace("\n", " ")[:220]
+        lines.append(f"- [{src}] {title} (link={link})")
+    return "\n".join(lines) if lines else "(no retrieved docs)"
+
+def analyze_with_llm(query: str, retrieved: List[Dict[str, Any]]) -> Dict[str, Any]:
+    llm = get_chat_model()
+    if not llm:
+        # keep your rule-based detection here; return structured object
+        return {"deals": [], "trend_summary": "LLM disabled; rule-based path."}
+
+    context = _format_ctx(retrieved)
+    if context == "(no retrieved docs)":
+        # Fallback: still give the model something (global query)
+        context = f"- No hits from vector DB for query. Use domain knowledge + deal keywords.\nQuery='{query}'"
+
+    prompt = (
+        "You are an M&A analyst. Extract concrete deals and trends from the context. "
+        "If uncertain, use null/undisclosed, don't hallucinate.\n\n"
+        f"{DEAL_SCHEMA_HINT}\n\n"
+        f"Query: {query}\n"
+        f"Context:\n{context}\n\n"
+        "JSON:"
+    )
+
+    raw = llm.generate(prompt, max_tokens=600, temperature=0.1)
+    # tolerant JSON parse
+    text = (raw or "").strip().strip("`")
+    if text.lower().startswith("json"):
+        text = text[4:].lstrip()
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict) and "deals" in data:
+            return data
+    except Exception:
+        pass
+    return {"deals": [], "trend_summary": "Model returned unparseable output"}
+
 RULES_RX = re.compile(r"(merger|acquisition|buyout|takeover|spin[- ]?off|SPAC)", re.I)
 
 class AnalysisAgent(BaseAgent):
@@ -33,38 +94,59 @@ class AnalysisAgent(BaseAgent):
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         self.before_run(state)
         cfg = state.get("config", {})
-        retr = self.long.retriever(k=cfg.get("top_k", 20))
-        docs = retr.invoke("Recent mergers, acquisitions, spin-offs or strategic deals")
-        state["retrieved_docs"] = [d.dict() for d in docs]
+        top_k = int(cfg.get("top_k", 20))
 
-        # Gather recent short-term context (last few notes)
+        retr = self.long.retriever(k=top_k)
+        query = "Recent mergers, acquisitions, spin-offs or strategic deals"
+        docs = retr.invoke(query)
+
+        retrieved_serializable: List[Dict[str, Any]] = []
+        for d in docs[:top_k]:
+            meta = d.metadata if isinstance(d.metadata, dict) else {}
+            retrieved_serializable.append({
+                "page_content": d.page_content,
+                "metadata": {
+                    "source": meta.get("source"),
+                    "ticker": meta.get("ticker"),
+                    "publisher": meta.get("publisher"),
+                    "link": meta.get("link"),
+                    "published": meta.get("published"),
+                    "form": meta.get("form"),
+                    "date": meta.get("date"),
+                }
+            })
+        state["retrieved_docs"] = retrieved_serializable
+
         recent_notes = self.short.get()
-        context_snip = "\n".join([m.get("note","") for m in recent_notes][-3:])
-        texts = [d.page_content for d in docs]
-        merged = (context_snip + "\n" + "\n".join(texts)).strip()
+        context_snip = "\n".join([m.get("note", "") for m in recent_notes][-3:]).strip()
 
-        # Try LLM via adapters; fallback to rule-based
-        chat = get_chat_model()  # decides from ENV/CONFIG
-        findings: Dict[str, Any]
-        if chat is not None:
-            prompt = (
-                "You are a deal intelligence analyst.\n"
-                "From the context below, extract concise JSON with fields "
-                "(ticker/party, deal_type, counterparties, date?, summary, confidence 0-1).\n"
-                f"Context:\n{merged}\n\nJSON:"
-            )
-            try:
-                out = chat.generate(prompt, max_tokens=300, temperature=0.2)
-                findings = {"model": chat.model_name, "text": out.strip()}
-            except Exception as e:
-                findings = {"model": "llm-error", "error": str(e), **self._rule_based(texts)}
-        else:
-            findings = self._rule_based(texts)
+        retrieved_for_llm = retrieved_serializable
+        if context_snip:
+            retrieved_for_llm = [{"page_content": context_snip, "metadata": {"source": "memory"}}] + retrieved_for_llm
 
-        # Write to short-term memory and long-term memory
-        self.short.add({"note": json.dumps(findings)[:500]})
-        self.long.upsert([Document(page_content=json.dumps(findings))])
+        llm_out = analyze_with_llm(query, retrieved_for_llm)
 
-        state["findings"] = findings
+        if not llm_out or not isinstance(llm_out, dict) or "deals" not in llm_out:
+            texts = [d["page_content"] for d in retrieved_serializable]
+            rb = self._rule_based(texts)
+            llm_out = {
+                "deals": [],  # rule-based has no structure; leave empty
+                "trend_summary": rb.get("items", [])[:5] and " ; ".join(rb["items"][:5]) or "No obvious deal signals.",
+                "_fallback": "rule-based"
+            }
+
+        chat = get_chat_model()
+        model_name = getattr(chat, "model_name", "disabled")
+        findings_structured = {"model": model_name, **llm_out}
+
+        compact_note = findings_structured.get("trend_summary") or (findings_structured["deals"][:1] and str(findings_structured["deals"][0])) or ""
+        self.short.add({"note": compact_note[:480]})
+        try:
+            content = json.dumps(findings_structured, default=str)[:4000]
+        except Exception:
+            content = str(findings_structured)[:4000]
+        self.long.upsert([Document(page_content=content, metadata={"source": "analysis", "agent": self.name})])
+
+        state["findings"] = findings_structured
         self.after_run(state)
         return state

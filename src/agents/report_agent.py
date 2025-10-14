@@ -23,6 +23,16 @@ class ReportAgent(BaseAgent):
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         self.before_run(state)
         findings = state.get("findings", {})
+        if findings.get("deals"):
+            base_text = " • " + "\n • ".join(
+                f"{d.get('type','?').title()}: {d.get('acquirer')} → {d.get('target')} "
+                f"({d.get('value_usd','undisclosed')}, {d.get('status','other')})"
+                for d in findings["deals"][:6]
+            )
+        else:
+            heads = [d["page_content"] for d in state.get("retrieved_docs", [])[:5]]
+            base_text = " • " + "\n • ".join(heads) if heads else "No deal signals today."
+
         raw = state.get("raw_items", {})
         now = datetime.now(timezone.utc).isoformat()
 

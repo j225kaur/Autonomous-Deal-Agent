@@ -10,6 +10,45 @@ import os
 from pathlib import Path
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+def _emb_model_name() -> str:
+    # keep it small/fast
+    return os.getenv("EMBEDDINGS_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+
+class VectorStore:
+    def __init__(self, index_dir: str = None):
+        self.index_dir = index_dir or os.getenv("INDEX_DIR", "embeddings/faiss")
+        self.emb = HuggingFaceEmbeddings(model_name=_emb_model_name())
+        self.vs = None
+        if os.path.isdir(self.index_dir):
+            try:
+                self.vs = FAISS.load_local(self.index_dir, self.emb, allow_dangerous_deserialization=True)
+            except Exception:
+                self.vs = None
+
+    def upsert(self, docs: List):
+        if not docs:
+            return 0
+        if self.vs is None:
+            self.vs = FAISS.from_documents(docs, self.emb)
+        else:
+            self.vs.add_documents(docs)
+        self.vs.save_local(self.index_dir)
+        return len(docs)
+
+    def search(self, query: str, k: int = 8):
+        if self.vs is None:
+            # lazy load in case this instance was created before ingest
+            if os.path.isdir(self.index_dir):
+                try:
+                    self.vs = FAISS.load_local(self.index_dir, self.emb, allow_dangerous_deserialization=True)
+                except Exception:
+                    pass
+        if self.vs is None:
+            return []
+        return self.vs.similarity_search(query, k=k)
+
 
 USE_OPENAI = os.environ.get("USE_OPENAI_EMBEDDINGS", "false").lower() == "true"
 DEFAULT_INDEX_DIR = os.environ.get("INDEX_DIR", "embeddings/faiss")

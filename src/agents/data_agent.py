@@ -7,14 +7,14 @@ DataAgent
 from __future__ import annotations
 from typing import Dict, Any, List
 from datetime import datetime, timezone
-
+import os
 from langchain_core.documents import Document
 from src.agents.base_agent import BaseAgent
 from src.memory.redis_memory import RedisMemory
 from src.memory.vector_memory import VectorMemory
 from src.retriever.ingest import build_documents_from_sources
 from src.utils.io import get_logger
-
+import traceback
 from src.retriever.ingest import (
     build_documents_from_sources,
     fetch_yahoo_news,
@@ -38,11 +38,24 @@ class DataAgent(BaseAgent):
         news_limit: int = cfg.get("news_limit", 15)
         use_sec: bool = bool(cfg.get("use_sec", False))
         ciks: List[str] = cfg.get("ciks", [])  # list of strings; can be empty
-
+        offline: bool = os.getenv("OFFLINE_MODE", "false").lower() in {"1","true","yes"}
         # --- Fetch data ---
-        yahoo_news = fetch_yahoo_news(tickers, limit_per_ticker=news_limit)
-        prices_ctx = fetch_prices_snapshot(tickers)
-        sec_items = fetch_sec_filings(ciks) if (use_sec and ciks) else []
+        yahoo_news, prices_ctx, sec_items = [], {}, []
+        try:
+            if not offline:
+                yahoo_news = fetch_yahoo_news(tickers, limit_per_ticker=news_limit)
+                prices_ctx = fetch_prices_snapshot(tickers)
+                sec_items = fetch_sec_filings(ciks) if (use_sec and ciks) else []
+            else:
+                # tiny offline stub for smoke tests
+                yahoo_news = [
+                    {"ticker": tickers[0], "title": f"{tickers[0]} enters definitive agreement to acquire XYZ", "link":"", "publisher":"offline", "published": 0},
+                    {"ticker": tickers[1], "title": f"{tickers[1]} announces strategic transaction with ABC", "link":"", "publisher":"offline", "published": 0},
+                ]
+                prices_ctx = {t: {"last": 100.0, "chg5d": 0.02} for t in tickers}
+        except Exception as e:
+            log.error(f"[DataAgent] fetch error: {e}")
+            log.debug(traceback.format_exc())
 
         # --- Build Documents for vector DB ---
         docs: List[Document] = build_documents_from_sources(
