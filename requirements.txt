@@ -17,3 +17,4 @@ yfinance
 requests
 pandas
 streamlit
+rank_bm25
