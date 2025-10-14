@@ -4,24 +4,28 @@ Autonomous Deal Agent is a small, modular pipeline that continuously (or on-dema
 
 What the system does (end-to-end):
 
-- Ingest: fetches news headlines and price snapshots per ticker (via `yfinance`) and can optionally pull simplified SEC submission metadata. Ingested items are normalized into LangChain `Document` objects.
-- Store: converts text into embeddings and upserts them to a FAISS vector index (long-term memory) so past signals are searchable by similarity.
+- Ingest: `DataAgent` fetches news headlines and price snapshots per ticker (via `yfinance`) and can optionally pull simplified SEC submission metadata. Ingested items are normalized into serializable LangChain `Document` objects and saved into `state['ingested_docs']` for immediate use by the pipeline.
+- Store & Retriever modes: the repo now supports two retrieval modes:
+	- BM25 (default): an in-memory BM25 retriever is used which requires no external downloads — great for fast local development and CI. `DataAgent`'s ingested docs are indexed in-memory and used by the `retrieve_step`.
+	- FAISS (optional): set `RETRIEVER_MODE=faiss` and provide `INDEX_DIR` to use FAISS with HuggingFace embeddings. This mode persists vectors to disk and supports similarity search across runs but may require a model download the first time.
 - Short-term context: writes ephemeral run notes (timestamps, brief notes) to Redis so agents can keep recent context without polluting the long-term index.
-- Analyze: retrieves top-K nearest documents for a ticker or query, applies lightweight heuristics and optional LLM reasoning to detect 'deal-ish' signals (merger/acquisition keywords, unusual filings, etc.).
-- Report: consolidates findings into structured JSON and a human-readable text summary, and exposes an HTTP API to trigger runs and fetch the latest report.
+- Analyze: the `retrieve_step` (inserted into the LangGraph flow) populates `state['retrieved_docs']` by selecting top-K documents either from BM25 (using `state['ingested_docs']`) or from FAISS. The `AnalysisAgent` consumes these serialized documents and runs heuristics and optional LLM reasoning to detect 'deal-ish' signals (merger/acquisition keywords, filings signals, etc.).
+- Report: `ReportAgent` consolidates findings into structured JSON and a human-readable text summary, and the API exposes endpoints to trigger runs and fetch the latest report.
 
 Key technologies and libraries used:
 
-- Orchestration: LangGraph StateGraph for wiring agent steps and manage execution flows.
-- Document model: LangChain `Document` objects carry text + normalized metadata for vectors.
-- Vector DB: FAISS via `langchain-community` for persistent, local vector indices.
-- Embeddings: `sentence-transformers` locally or optional OpenAI-compatible embedding provider (configurable via env).
-- Short-term memory: Redis lists for LPUSH/LTRIM/LRANGE-based ephemeral notes.
-- Data sources: `yfinance` for news/prices and public SEC JSON endpoints for filings.
+- Orchestration: LangGraph StateGraph for wiring agent steps and managing execution flows. The orchestrator now includes an explicit `retrieve` node.
+- Document model: LangChain `Document` objects carry text + normalized metadata.
+- Retriever modes:
+	- BM25 via `langchain_community.retrievers.BM25Retriever` (default, no heavy downloads).
+	- FAISS via `langchain_community.vectorstores.FAISS` with `HuggingFaceEmbeddings` (optional, set `RETRIEVER_MODE=faiss`).
+- Embeddings: HuggingFace sentence-transformer models (local) or other OpenAI-compatible embedding providers (configurable).
+- Short-term memory: Redis lists for LPUSH/LTRIM/LRANGE-based ephemeral notes (`memory/redis_memory.py`).
+- Data sources: `yfinance` for news/prices and public SEC JSON endpoints for filings (`src/data_ingestion/yahoo_sec.py`).
 - API/UI: FastAPI (example server) and an optional Streamlit dashboard to preview the latest report.
 - Tests: pytest for unit/smoke tests; CI workflow template provided for GitHub Actions.
 
-This repo aims to be practical for local development and CI: it creates lightweight placeholder FAISS indexes when none exist (first-run friendly), isolates short-term vs long-term memory, and keeps model/embedding backends pluggable so you can run fully offline or connect to managed LLM services in production.
+This repo aims to be practical for local development and CI: BM25 mode allows running the full pipeline without model downloads or FAISS, while FAISS mode enables persistent similarity search in production-style runs. The `retrieve_step` serializes retrieved documents into `state['retrieved_docs']` to keep agent boundaries clean and deterministic for tests.
 
 ### Benefits of this architecture
 1. Clear separation of concerns (ingest, analysis, reporting). Easier testing and swapping components.
