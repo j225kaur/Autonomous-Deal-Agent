@@ -1,3 +1,1 @@
-• Daily Deal Report (2025-10-14T00:35:49.999360+00:00) Findings: {"model": "api:llama-3.1-8b-instant", "text": "I'm ready to analyze the deal intelligence.
-• However, I don't see any context or JSON data provided.
-• Please provide the context or JSON data, and I'll extract the concise JSON with the specified fields."}
+• Daily Deal Report (2025-10-14T02:25:10.727133+00:00) Findings: {"model": "disabled", "deals": [], "trend_summary": "LLM disabled; rule-based path."}

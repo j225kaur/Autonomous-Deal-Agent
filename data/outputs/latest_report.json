@@ -1,17 +1,18 @@
 {
-  "generated_at": "2025-10-14T00:35:49.999360+00:00",
+  "generated_at": "2025-10-14T02:25:10.727133+00:00",
   "sources": {
     "tickers": [
       "AAPL",
       "MSFT",
       "NVDA"
     ],
-    "news_count": 15,
+    "news_count": 30,
     "sec_count": 0
   },
   "findings": {
-    "model": "api:llama-3.1-8b-instant",
-    "text": "I'm ready to analyze the deal intelligence. However, I don't see any context or JSON data provided. Please provide the context or JSON data, and I'll extract the concise JSON with the specified fields."
+    "model": "disabled",
+    "deals": [],
+    "trend_summary": "LLM disabled; rule-based path."
   },
-  "summary": "\u2022 Daily Deal Report (2025-10-14T00:35:49.999360+00:00) Findings: {\"model\": \"api:llama-3.1-8b-instant\", \"text\": \"I'm ready to analyze the deal intelligence.\n\u2022 However, I don't see any context or JSON data provided.\n\u2022 Please provide the context or JSON data, and I'll extract the concise JSON with the specified fields.\"}"
+  "summary": "\u2022 Daily Deal Report (2025-10-14T02:25:10.727133+00:00) Findings: {\"model\": \"disabled\", \"deals\": [], \"trend_summary\": \"LLM disabled; rule-based path.\"}"
 }

@@ -4,17 +4,11 @@ ReportAgent
 - Uses summarizer adapter (DistilBART/FLAN-T5) to polish text
 - Saves JSON and TXT to data/outputs/
 """
+# src/agents/report_agent.py
 from __future__ import annotations
-from typing import Dict, Any
-from datetime import datetime, timezone
-import os
-import json
-from src.utils.io import ensure_dir, write_text, write_json
+from typing import Dict, Any, List
 from src.agents.base_agent import BaseAgent
-from src.models.summarizer import get_summarizer
-
-
-OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "data/outputs")
+from src.models.summarizer import get_summarizer  # optional
 
 class ReportAgent(BaseAgent):
     def __init__(self):
@@ -22,36 +16,42 @@ class ReportAgent(BaseAgent):
 
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         self.before_run(state)
+
         findings = state.get("findings", {})
-        if findings.get("deals"):
-            base_text = " • " + "\n • ".join(
-                f"{d.get('type','?').title()}: {d.get('acquirer')} → {d.get('target')} "
-                f"({d.get('value_usd','undisclosed')}, {d.get('status','other')})"
-                for d in findings["deals"][:6]
-            )
+        deals = findings.get("deals") or []
+        lines: List[str] = []
+
+        if deals:
+            for d in deals[:6]:
+                t = (d.get("type") or "?").title()
+                acq = d.get("acquirer") or "?"
+                tgt = d.get("target") or "?"
+                val = d.get("value_usd") or "undisclosed"
+                st  = d.get("status") or "other"
+                lines.append(f"• {t}: {acq} → {tgt} ({val}, {st})")
         else:
-            heads = [d["page_content"] for d in state.get("retrieved_docs", [])[:5]]
-            base_text = " • " + "\n • ".join(heads) if heads else "No deal signals today."
+            heads = [
+                rd["page_content"]
+                for rd in state.get("retrieved_docs", [])
+                if rd.get("metadata", {}).get("source") in {"yahoo_news", "sec"}
+            ][:5]
+            lines = [f"• {h}" for h in heads] or ["• No clear deal signals today."]
 
-        raw = state.get("raw_items", {})
-        now = datetime.now(timezone.utc).isoformat()
+        final_text = "\n".join(lines)
 
-        # Build text; try summarizer to make it punchy
+        # Optional polishing via summarizer (sentence-transformers) if enabled
         summarizer = get_summarizer()
-        base_text = f"Daily Deal Report ({now})\n\nFindings:\n{json.dumps(findings)[:2000]}"
-        text = summarizer.summarize(base_text, max_chars=1200) if summarizer else base_text
+        if summarizer:
+            try:
+                final_text = summarizer.summarize(final_text, max_sentences=5)
+            except Exception:
+                pass
 
-        report_json = {
-            "generated_at": now,
-            "sources": raw,
-            "findings": findings,
-            "summary": text[:4000],
-        }
+        report = state.setdefault("report", {})
+        report.setdefault("json", {})
+        report["json"]["findings"] = findings
+        report["json"]["summary"] = final_text
+        report["text"] = final_text
 
-        ensure_dir(OUTPUT_DIR)
-        write_json(os.path.join(OUTPUT_DIR, "latest_report.json"), report_json)
-        write_text(os.path.join(OUTPUT_DIR, "latest_report.txt"), text)
-
-        state["report"] = {"json": report_json, "text": text}
         self.after_run(state)
         return state

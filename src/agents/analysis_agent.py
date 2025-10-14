@@ -96,42 +96,44 @@ class AnalysisAgent(BaseAgent):
         cfg = state.get("config", {})
         top_k = int(cfg.get("top_k", 20))
 
-        retr = self.long.retriever(k=top_k)
-        query = "Recent mergers, acquisitions, spin-offs or strategic deals"
-        docs = retr.invoke(query)
-
-        retrieved_serializable: List[Dict[str, Any]] = []
-        for d in docs[:top_k]:
-            meta = d.metadata if isinstance(d.metadata, dict) else {}
-            retrieved_serializable.append({
-                "page_content": d.page_content,
-                "metadata": {
-                    "source": meta.get("source"),
-                    "ticker": meta.get("ticker"),
-                    "publisher": meta.get("publisher"),
-                    "link": meta.get("link"),
-                    "published": meta.get("published"),
-                    "form": meta.get("form"),
-                    "date": meta.get("date"),
-                }
-            })
-        state["retrieved_docs"] = retrieved_serializable
+        retrieved_serializable = state.get("retrieved_docs") or []
+        if not retrieved_serializable:
+            retr = self.long.retriever(k=top_k)
+            query = "Recent mergers, acquisitions, spin-offs or strategic deals"
+            docs = retr.invoke(query)
+            for d in docs[:top_k]:
+                meta = d.metadata if isinstance(d.metadata, dict) else {}
+                retrieved_serializable.append({
+                    "page_content": d.page_content,
+                    "metadata": {
+                        "source": meta.get("source"),
+                        "ticker": meta.get("ticker"),
+                        "publisher": meta.get("publisher"),
+                        "link": meta.get("link"),
+                        "published": meta.get("published"),
+                        "form": meta.get("form"),
+                        "date": meta.get("date"),
+                    }
+                })
+            state["retrieved_docs"] = retrieved_serializable
 
         recent_notes = self.short.get()
-        context_snip = "\n".join([m.get("note", "") for m in recent_notes][-3:]).strip()
-
+        context_snip = "\n".join([m.get("note","") for m in recent_notes][-3:]).strip()
         retrieved_for_llm = retrieved_serializable
         if context_snip:
-            retrieved_for_llm = [{"page_content": context_snip, "metadata": {"source": "memory"}}] + retrieved_for_llm
+            retrieved_for_llm = [{"page_content": context_snip, "metadata": {"source": "memory"}}] + retrieved_serializable
 
+        query = " ".join(cfg.get("tickers", [])) + " M&A deals today"
         llm_out = analyze_with_llm(query, retrieved_for_llm)
 
         if not llm_out or not isinstance(llm_out, dict) or "deals" not in llm_out:
+            # Rule-based fallback
+            RULES_RX = re.compile(r"(merger|acquisition|buyout|takeover|spin[- ]?off|SPAC|definitive agreement|tender)", re.I)
             texts = [d["page_content"] for d in retrieved_serializable]
-            rb = self._rule_based(texts)
+            hits = [t[:220] for t in texts if RULES_RX.search(t or "")]
             llm_out = {
-                "deals": [],  # rule-based has no structure; leave empty
-                "trend_summary": rb.get("items", [])[:5] and " ; ".join(rb["items"][:5]) or "No obvious deal signals.",
+                "deals": [],
+                "trend_summary": hits[:5] and " ; ".join(hits[:5]) or "No obvious deal signals.",
                 "_fallback": "rule-based"
             }
 
@@ -139,13 +141,16 @@ class AnalysisAgent(BaseAgent):
         model_name = getattr(chat, "model_name", "disabled")
         findings_structured = {"model": model_name, **llm_out}
 
-        compact_note = findings_structured.get("trend_summary") or (findings_structured["deals"][:1] and str(findings_structured["deals"][0])) or ""
+        compact_note = findings_structured.get("trend_summary") or (
+            findings_structured.get("deals") and str(findings_structured["deals"][0])
+        ) or ""
         self.short.add({"note": compact_note[:480]})
+
         try:
             content = json.dumps(findings_structured, default=str)[:4000]
         except Exception:
             content = str(findings_structured)[:4000]
-        self.long.upsert([Document(page_content=content, metadata={"source": "analysis", "agent": self.name})])
+        self.long.upsert([Document(page_content=content, metadata={"source":"analysis","agent":self.name})])
 
         state["findings"] = findings_structured
         self.after_run(state)

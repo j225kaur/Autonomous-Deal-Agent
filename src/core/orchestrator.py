@@ -1,16 +1,24 @@
+# src/core/orchestrator.py
 """
-LangGraph supervisor: wires DataAgent → AnalysisAgent → ReportAgent
+LangGraph supervisor: wires DataAgent → Retrieve → AnalysisAgent → ReportAgent.
+
+- BM25 mode (default): uses docs just ingested by DataAgent from state["ingested_docs"]
+  so it requires NO HuggingFace downloads.
+- FAISS mode: uses VectorStore (embeddings) for similarity search; set RETRIEVER_MODE=faiss.
 """
+
 from __future__ import annotations
-from typing import Dict, Any
+from typing import Dict, Any, List
+import os
+
 from langgraph.graph import StateGraph, END
 
 from src.core.state import GraphState
 from src.agents.data_agent import DataAgent
 from src.agents.analysis_agent import AnalysisAgent
 from src.agents.report_agent import ReportAgent
-import os
 from src.retriever.store import VectorStore
+
 
 DEAL_QUERY = (
     "merger OR acquisition OR acquire OR acquiring OR acquired OR buyout OR "
@@ -18,69 +26,114 @@ DEAL_QUERY = (
     "OR divestiture OR spin-off"
 )
 
-def _build_queries(tickers: list[str]) -> list[str]:
-    # simple multi-query: ticker + deal terms
+
+def _build_queries(tickers: List[str]) -> List[str]:
+    """Simple multi-query: ticker + deal terms."""
+    if not tickers:
+        return [DEAL_QUERY]
     return [f"{t} {DEAL_QUERY}" for t in tickers]
 
-def retrieve_step(state: dict) -> dict:
-    cfg = state.get("config", {})
+
+def retrieve_step(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Populate state['retrieved_docs'] with small, serializable dicts:
+      [{"page_content": "...", "metadata": {...}}, ...]
+
+    BM25 mode:
+      - Pulls from in-memory docs saved by DataAgent in state['ingested_docs'].
+      - Prefers docs flagged as deal-ish (metadata.is_dealish = True).
+
+    FAISS mode:
+      - Uses persisted VectorStore similarity_search over the index at INDEX_DIR.
+    """
+    cfg = state.get("config", {}) or {}
     top_k = int(cfg.get("top_k", 8))
-    tickers = cfg.get("tickers", [])
+    tickers = cfg.get("tickers", []) or []
+
+    mode = os.getenv("RETRIEVER_MODE", "bm25").lower()
     index_dir = os.getenv("INDEX_DIR", "embeddings/faiss")
+    queries = _build_queries(tickers)
 
-    vs = VectorStore(index_dir=index_dir)
-    queries = _build_queries(tickers) or [DEAL_QUERY]
+    cleaned: List[Dict[str, Any]] = []
 
-    retrieved = []
-    for q in queries:
-        docs = vs.search(q, k=top_k)
-        retrieved.extend(docs)
+    if mode == "bm25":
+        ingested = state.get("ingested_docs", []) or []
+        if ingested:
+            news_like = [
+                d for d in ingested
+                if d.get("metadata", {}).get("source") in {"yahoo_news", "sec"}
+            ]
+            dealish = [d for d in ingested if d.get("metadata", {}).get("is_dealish")]
+            non_price = [d for d in ingested if d.get("metadata", {}).get("source") != "price_snapshot"]
+            selection = dealish or news_like or non_price
+            cleaned = selection[:top_k]
+        else:
+            cleaned = []
+    else:
+        # FAISS/vector mode
+        vs = VectorStore(index_dir=index_dir)
+        retrieved = []
+        for q in queries:
+            docs = vs.search(q, k=top_k)
+            retrieved.extend(docs)
 
-    # de-dup a bit by (content, link)
-    seen = set()
-    cleaned = []
-    for d in retrieved:
-        meta = getattr(d, "metadata", {})
-        key = (getattr(d, "page_content", ""), meta.get("link"))
-        if key in seen: 
-            continue
-        seen.add(key)
-        # store small dicts to avoid pydantic serialization issues later
-        cleaned.append({
-            "page_content": getattr(d, "page_content", ""),
-            "metadata": dict(meta) if isinstance(meta, dict) else {},
-        })
+        # de-dup & serialize
+        seen = set()
+        for d in retrieved:
+            meta = getattr(d, "metadata", {}) or {}
+            key = (getattr(d, "page_content", "") or "", meta.get("link"))
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append({
+                "page_content": getattr(d, "page_content", "") or "",
+                "metadata": dict(meta) if isinstance(meta, dict) else {},
+            })
 
-    state["retrieved_docs"] = cleaned[:top_k] or []
-    state["retriever_info"] = {"queries": queries, "hits": len(cleaned)}
+    state["retrieved_docs"] = cleaned[:top_k] if cleaned else []
+    state["retriever_info"] = {"mode": mode, "queries": queries, "hits": len(cleaned)}
     return state
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(GraphState)
+
+    # Nodes
     graph.add_node("data", DataAgent())
+    graph.add_node("retrieve", retrieve_step)   # <— inserted retrieve node
     graph.add_node("analysis", AnalysisAgent())
     graph.add_node("report", ReportAgent())
 
+    # Edges
     graph.set_entry_point("data")
-    graph.add_edge("data", "analysis")
+    graph.add_edge("data", "retrieve")
+    graph.add_edge("retrieve", "analysis")
     graph.add_edge("analysis", "report")
     graph.add_edge("report", END)
     return graph
 
+
 def run_once(config: Dict[str, Any]) -> GraphState:
+    """
+    Run a single pass through the pipeline. `config` supports keys like:
+      - tickers (list[str] or comma string)
+      - top_k (int), news_limit (int), use_sec (bool), ciks (list[str])
+      - enable_checkpointer (bool)
+    """
+    # normalize comma strings to list
+    if isinstance(config.get("tickers"), str):
+        config["tickers"] = [t.strip() for t in config["tickers"].split(",") if t.strip()]
+
     initial: GraphState = {
         "config": config,
         "raw_items": {},
         "documents_added": 0,
-        "retrieved_docs": [],
+        "ingested_docs": [],         # filled by DataAgent
+        "retrieved_docs": [],        # filled by retrieve_step
         "findings": {},
         "report": {},
     }
-    # By default we compile without a checkpointer to keep runs simple and
-    # avoid requiring checkpoint-related config keys (thread_id, checkpoint_ns, ...).
-    # If you want to enable checkpointing, set `config['enable_checkpointer']=True`
-    # and the graph will be compiled with an in-memory saver.
+
     if config.get("enable_checkpointer"):
         from langgraph.checkpoint.memory import MemorySaver
         app = build_graph().compile(checkpointer=MemorySaver())
