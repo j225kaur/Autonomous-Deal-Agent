@@ -178,3 +178,6 @@ ASCII fallback:
 - Redis short-term notes: JSON objects with `ts` and `note` string stored in a Redis list per agent.
 - Output: GraphState containing `report` (with `text`, `summary`, and `findings`) and an exported JSON in `data/outputs/latest_report.json`.
 
+Developed by Jasvin Kaur
+
+Let’s connect on LinkedIN

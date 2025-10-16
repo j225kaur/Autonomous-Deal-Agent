@@ -9,7 +9,7 @@ import os
 from typing import List
 
 from langchain_core.documents import Document
-from langchain_community.retrievers import BM25Retriever
+from langchain_community.retrievers.bm25 import BM25Retriever
 
 # FAISS/HF are optional; import lazily only if used
 try:
@@ -51,22 +51,29 @@ class VectorStore:
                     self.vs = None
 
     def upsert(self, docs: List[Document] | None) -> int:
-        docs = docs or []
-        if not docs:
-            return 0
+        normalized: List[Document] = []
+        for d in docs:
+            if isinstance(d, Document):
+                normalized.append(d)
+            elif isinstance(d, dict):
+                page_content = d.get("page_content") or d.get("text") or d.get("content") or json.dumps(d)
+                metadata = d.get("metadata") or {}
+                normalized.append(Document(page_content=page_content, metadata=metadata))
+            elif isinstance(d, str):
+                normalized.append(Document(page_content=d, metadata={}))
+            else:
+                # fallback: stringify unknown types
+                normalized.append(Document(page_content=str(d), metadata={}))
 
-        if self.mode == "bm25":
-            self._docs.extend(docs)
+        # append to store docs list
+        self._docs.extend(normalized)
+
+        # attempt to build/update BM25 retriever; if it fails, log and leave retriever None
+        try:
             self._bm25 = BM25Retriever.from_documents(self._docs)
-            return len(docs)
-
-        # FAISS
-        if self.vs is None:
-            self.vs = FAISS.from_documents(docs, self.emb)
-        else:
-            self.vs.add_documents(docs)
-        self.vs.save_local(self.index_dir)
-        return len(docs)
+        except Exception as err:
+            #logger.warning("BM25Retriever construction failed: %s. Falling back to no-BM25.", err)
+            self._bm25 = None
 
     def retriever(self, k: int = 8):
         if self.mode == "bm25":
