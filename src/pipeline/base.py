@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Dict, Any
 from src.utils.io import get_logger
 
-class BaseAgent:
+class Base:
     def __init__(self, name: str):
         self.name = name
         self.log = get_logger(name)

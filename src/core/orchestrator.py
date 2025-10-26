@@ -14,9 +14,9 @@ import os
 from langgraph.graph import StateGraph, END
 
 from src.core.state import GraphState
-from src.agents.data_agent import DataAgent
-from src.agents.analysis_agent import AnalysisAgent
-from src.agents.report_agent import ReportAgent
+from pipeline.data_collector import DataCollector
+from pipeline.deal_analyzer import DealAnalyzer
+from pipeline.report_generator import ReportGenerator
 from src.retriever.store import VectorStore
 
 

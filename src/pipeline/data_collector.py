@@ -9,7 +9,7 @@ from typing import Dict, Any, List
 from datetime import datetime, timezone
 import os, traceback
 from langchain_core.documents import Document
-from src.agents.base_agent import BaseAgent
+from pipeline.base import Base
 from src.memory.redis_memory import RedisMemory
 from src.memory.vector_memory import VectorMemory
 from src.utils.io import get_logger
@@ -23,7 +23,7 @@ from src.retriever.ingest import (
 __all__ = ["build_documents_from_sources","fetch_yahoo_news","fetch_prices_snapshot","fetch_sec_filings"]
 log = get_logger(__name__)
 
-class DataAgent(BaseAgent):
+class DataCollector(Base):
     def __init__(self):
         super().__init__("data_agent")
         self.short = RedisMemory(self.name, max_entries=50)

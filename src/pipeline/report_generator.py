@@ -4,13 +4,13 @@ ReportAgent
 - Uses summarizer adapter (DistilBART/FLAN-T5) to polish text
 - Saves JSON and TXT to data/outputs/
 """
-# src/agents/report_agent.py
+# src/pipeline/report_generator.py
 from __future__ import annotations
 from typing import Dict, Any, List
-from src.agents.base_agent import BaseAgent
+from pipeline.base import Base
 from src.models.summarizer import get_summarizer  # optional
 
-class ReportAgent(BaseAgent):
+class ReportGenerator(Base):
     def __init__(self):
         super().__init__("report_agent")
 

@@ -4,17 +4,17 @@ Autonomous Deal Agent is a small, modular pipeline that continuously (or on-dema
 
 What the system does (end-to-end):
 
-- Ingest: `DataAgent` fetches news headlines and price snapshots per ticker (via `yfinance`) and can optionally pull simplified SEC submission metadata. Ingested items are normalized into serializable LangChain `Document` objects and saved into `state['ingested_docs']` for immediate use by the pipeline.
+- Ingest: `DataCollector` fetches news headlines and price snapshots per ticker (via `yfinance`) and can optionally pull simplified SEC submission metadata. Ingested items are normalized into serializable LangChain `Document` objects and saved into `state['ingested_docs']` for immediate use by the pipeline.
 - Store & Retriever modes: the repo now supports two retrieval modes:
-	- BM25 (default): an in-memory BM25 retriever is used which requires no external downloads — great for fast local development and CI. `DataAgent`'s ingested docs are indexed in-memory and used by the `retrieve_step`.
+	- BM25 (default): an in-memory BM25 retriever is used which requires no external downloads — great for fast local development and CI. `DataCollector`'s ingested docs are indexed in-memory and used by the `retrieve_step`.
 	- FAISS (optional): set `RETRIEVER_MODE=faiss` and provide `INDEX_DIR` to use FAISS with HuggingFace embeddings. This mode persists vectors to disk and supports similarity search across runs but may require a model download the first time.
-- Short-term context: writes ephemeral run notes (timestamps, brief notes) to Redis so agents can keep recent context without polluting the long-term index.
-- Analyze: the `retrieve_step` (inserted into the LangGraph flow) populates `state['retrieved_docs']` by selecting top-K documents either from BM25 (using `state['ingested_docs']`) or from FAISS. The `AnalysisAgent` consumes these serialized documents and runs heuristics and optional LLM reasoning to detect 'deal-ish' signals (merger/acquisition keywords, filings signals, etc.).
-- Report: `ReportAgent` consolidates findings into structured JSON and a human-readable text summary, and the API exposes endpoints to trigger runs and fetch the latest report.
+- Short-term context: writes ephemeral run notes (timestamps, brief notes) to Redis so pipeline modules can keep recent context without polluting the long-term index.
+- Analyze: the `retrieve_step` (inserted into the LangGraph flow) populates `state['retrieved_docs']` by selecting top-K documents either from BM25 (using `state['ingested_docs']`) or from FAISS. The `DealAnalyzer` consumes these serialized documents and runs heuristics and optional LLM reasoning to detect "deal-ish" signals (merger/acquisition keywords, filings signals, etc.).
+- Report: `ReportGenerator` consolidates findings into structured JSON and a human-readable text summary, and the API exposes endpoints to trigger runs and fetch the latest report.
 
 Key technologies and libraries used:
 
-- Orchestration: LangGraph StateGraph for wiring agent steps and managing execution flows. The orchestrator now includes an explicit `retrieve` node.
+- Orchestration: LangGraph StateGraph for wiring pipeline steps and managing execution flows. The orchestrator now includes an explicit `retrieve` node.
 - Document model: LangChain `Document` objects carry text + normalized metadata.
 - Retriever modes:
 	- BM25 via `langchain_community.retrievers.BM25Retriever` (default, no heavy downloads).
@@ -35,17 +35,19 @@ This repo aims to be practical for local development and CI: BM25 mode allows ru
 5. Container-friendly: runs in Docker with Redis as a service for reproducible deployments.
 
 ## Repo layout (high level)
-
 - `src/` — main package
-	- `agents/` — DataAgent, AnalysisAgent, ReportAgent, and BaseAgent
-	- `core/` — orchestrator, router, and state shapes (wiring for LangGraph)
-	- `data_ingestion/` — helpers for Yahoo/SEC (yfinance, SEC JSON access)
+	- `pipeline/` — core pipeline primitives: `DataCollector`, `DealAnalyzer`, `ReportGenerator` classes
+	- `core/` — orchestrator, router, and state shapes (LangGraph wiring)
+	- `data_ingestion/` — Yahoo/SEC helpers (`yfinance`, SEC JSON access)
 	- `retriever/` — FAISS store helpers and document conversion
-	- `memory/` — Redis short-term memory and vector memory wrapper
+	- `memory/` — Redis short-term memory and vector-memory wrapper
 	- `ui/` — optional Streamlit preview
-- `api/` — small example FastAPI server to run the pipeline via HTTP
+- `api/` — example FastAPI server to run the pipeline via HTTP
 - `tests/` — pytest tests and fixtures
 - `embeddings/` — (ignored) local FAISS index data
+- `data/` — outputs and persisted artifacts (e.g., `data/outputs/latest_report.json`)
+- `docs/` — supplemental docs, diagrams, and usage examples (optional)
+- `scripts/` — helper scripts for local setup, index bootstrapping, and CI utilities (optional)
 
 ## Requirements
 
@@ -145,7 +147,7 @@ This project is experimental; include license details here if you want to publis
 
 Below is a compact description of the runtime flow and a Mermaid diagram you can paste into a renderer (GitHub README supports Mermaid blocks).
 
-One-line summary: DataAgent -> FAISS (long-term) + Redis (short-term) -> AnalysisAgent -> ReportAgent -> output
+One-line summary: DataCollector -> FAISS (long-term) + Redis (short-term) -> DealAnalyzer -> ReportGenerator -> output
 
 Mermaid diagram:
 
@@ -157,27 +159,25 @@ flowchart LR
 		C[LLM provider (optional)] -->|generation| Analysis
 	end
 
-	Data[DataAgent] -->|Documents / upsert| FAISS[FAISS (embeddings)]
+	Data[DataCollector] -->|Documents / upsert| FAISS[FAISS (embeddings)]
 	Data -->|short note| Redis[Redis short-term memory]
-	FAISS -->|retrieval| Analysis[AnalysisAgent]
-	Analysis -->|findings| Report[ReportAgent]
+	FAISS -->|retrieval| Analysis[DealAnalyzer]
+	Analysis -->|findings| Report[ReportGenerator]
 	Report -->|report.json + text| Output[data/outputs/latest_report.json]
 ```
 
 ASCII fallback:
 
-- External sources -> DataAgent
-	- DataAgent
+- External sources -> DataCollector
+	- DataCollector
 		- writes Documents -> FAISS (long-term)
 		- writes note -> Redis (short-term)
-- FAISS -> AnalysisAgent (retrieves documents) -> ReportAgent -> output file / API
+- FAISS -> DealAnalyzer (retrieves documents) -> ReportGenerator -> output file / API
 
 ### Data contract (short)
 - Input: `config` object with fields: `tickers: List[str]`, `use_sec: bool`, `top_k: int`, optional `enable_checkpointer: bool`.
 - Documents: LangChain `Document` objects with `page_content` and `metadata` containing fields such as `source`, `ticker`/`cik`, `published`, `link`, `is_dealish`.
-- Redis short-term notes: JSON objects with `ts` and `note` string stored in a Redis list per agent.
+- Redis short-term notes: JSON objects with `ts` and `note` string stored in a Redis list per module.
 - Output: GraphState containing `report` (with `text`, `summary`, and `findings`) and an exported JSON in `data/outputs/latest_report.json`.
 
 Developed by Jasvin Kaur
-
-Let’s connect on LinkedIN

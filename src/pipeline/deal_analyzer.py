@@ -10,7 +10,7 @@ import json
 import re
 
 from langchain_core.documents import Document
-from src.agents.base_agent import BaseAgent
+from pipeline.base import Base
 from src.memory.redis_memory import RedisMemory
 from src.memory.vector_memory import VectorMemory
 from src.models.adapters import get_chat_model
@@ -78,7 +78,7 @@ def analyze_with_llm(query: str, retrieved: List[Dict[str, Any]]) -> Dict[str, A
 
 RULES_RX = re.compile(r"(merger|acquisition|buyout|takeover|spin[- ]?off|SPAC)", re.I)
 
-class AnalysisAgent(BaseAgent):
+class DealAnalyzer(Base):
     def __init__(self):
         super().__init__("analysis_agent")
         self.short = RedisMemory(self.name, max_entries=50)
