@@ -99,10 +99,10 @@ def build_graph() -> StateGraph:
     graph = StateGraph(GraphState)
 
     # Nodes
-    graph.add_node("data", DataAgent())
+    graph.add_node("data", DataCollector())
     graph.add_node("retrieve", retrieve_step)   # <— inserted retrieve node
-    graph.add_node("analysis", AnalysisAgent())
-    graph.add_node("report", ReportAgent())
+    graph.add_node("analysis", DealAnalyzer())
+    graph.add_node("report", ReportGenerator())
 
     # Edges
     graph.set_entry_point("data")
