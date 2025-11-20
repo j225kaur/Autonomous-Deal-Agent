@@ -7,7 +7,7 @@ ReportAgent
 # src/pipeline/report_generator.py
 from __future__ import annotations
 from typing import Dict, Any, List
-from pipeline.base import Base
+from src.pipeline.base import Base
 from src.models.summarizer import get_summarizer  # optional
 
 class ReportGenerator(Base):
@@ -50,6 +50,7 @@ class ReportGenerator(Base):
         report = state.setdefault("report", {})
         report.setdefault("json", {})
         report["json"]["findings"] = findings
+        report["json"]["retrieved_docs"] = state.get("retrieved_docs", [])
         report["json"]["summary"] = final_text
         report["text"] = final_text
         

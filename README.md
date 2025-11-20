@@ -35,7 +35,7 @@ This repo aims to be practical for local development and CI: BM25 mode allows ru
 5. Container-friendly: runs in Docker with Redis as a service for reproducible deployments.
 
 ## Repo layout (high level)
-- `src/` — main package
+- `src/` — main package (now a proper Python package with `__init__.py`)
 	- `pipeline/` — core pipeline primitives: `DataCollector`, `DealAnalyzer`, `ReportGenerator` classes
 	- `core/` — orchestrator, router, and state shapes (LangGraph wiring)
 	- `data_ingestion/` — Yahoo/SEC helpers (`yfinance`, SEC JSON access)
@@ -59,9 +59,11 @@ This project targets Python 3.11 (locally tested). The primary runtime dependenc
 
 Use the included `requirements.txt` to install dependencies into a virtualenv.
 
-## Quickstart (local)
+## Running the Application
 
-1. Create and activate a virtualenv:
+### 1. Setup Environment
+
+Create and activate a virtual environment, then install dependencies:
 
 ```bash
 python -m venv .venv
@@ -70,51 +72,56 @@ pip install -U pip
 pip install -r requirements.txt
 ```
 
-2. Configure runtime environment. For local development you can create an `env_var` file (this repo ignores that file by default).
+### 2. Configuration
 
-Example `env_var.example` (create `env_var` from this and fill secrets):
+For local development, create an `env_var` file (ignored by git) based on `env_var.example`:
 
-```
-TICKERS=AAPL,MSFT,NVDA
-USE_SEC=false
-NEWS_LIMIT=8
-TOP_K=10
-REDIS_URL=redis://localhost:6379/0
-INDEX_DIR=embeddings/faiss
-# Optional model backends (set to 'disabled' to avoid hitting LLM APIs)
-CHAT_MODEL=disabled
-SUMMARY_MODEL=disabled
-# OPENAI-compatible keys (store real values in CI secrets)
-OPENAI_API_KEY=
-OPENAI_BASE_URL=
-OPENAI_MODEL=
-```
-
-3. Start Redis locally (optional; short-term memory uses Redis):
-
-macOS (Homebrew):
 ```bash
+cp env_var.example env_var
+# Edit env_var with your API keys and preferences
+```
+
+### 3. Start Redis (Optional)
+
+If you want to use Redis for short-term memory:
+
+```bash
+# macOS (Homebrew)
 brew install redis
 brew services start redis
 ```
 
-4. Run the API server (example):
+### 4. Run the API Server
+
+Start the FastAPI server to expose the pipeline endpoints:
 
 ```bash
-uvicorn api.server:app --host 0.0.0.0 --port 8000
+uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Open `http://localhost:8000/docs` to explore the endpoints.
+- API Docs: `http://localhost:8000/docs`
+- Trigger a run: `POST /run_report`
+
+### 5. Run the UI Dashboard
+
+Start the Streamlit dashboard to visualize the latest report and signals:
+
+```bash
+streamlit run src/ui/app.py
+```
+
+- Dashboard: `http://localhost:8501`
 
 ## Tests
 
-Run pytest from the repo root. The test suite expects `src/` imports to resolve (the test setup adds the repo root to `sys.path`):
+Run pytest from the repo root. The test suite verifies the pipeline components and their interactions.
 
 ```bash
 source .venv/bin/activate
-pip install -r requirements.txt
 pytest -q
 ```
+
+> **Note:** Recent updates have standardized imports to use the `src.` prefix. Ensure you are running tests from the project root.
 
 If tests need FAISS indices or Redis, the test helpers create a small placeholder index automatically so tests can run in CI without prebuilt indexes.
 

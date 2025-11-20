@@ -79,14 +79,32 @@ with tab2:
 
 with tab3:
     st.subheader("Retrieved Evidence")
-    # We need to access retrieved docs. 
-    # If they are not in latest_report.json, we might need to adjust ReportGenerator to include them.
-    # For now, let's check if they are in findings or we can infer.
-    # Actually ReportGenerator puts findings in json.
-    # Let's assume we might want to see what was retrieved.
-    # If not available, we show a placeholder.
-    st.write("Raw findings data:")
-    st.json(findings)
+    
+    # Check if we have retrieved_docs in the report json
+    retrieved = data.get("retrieved_docs", [])
+    
+    # Fallback to findings if not in root (older reports)
+    if not retrieved:
+        # Try to extract from findings if possible, or just show raw
+        st.info("No detailed retrieved documents found in report.")
+        st.write("Raw findings data:")
+        st.json(findings)
+    else:
+        for i, doc in enumerate(retrieved):
+            meta = doc.get("metadata", {})
+            content = doc.get("page_content", "")
+            source = meta.get("source", "unknown")
+            ticker = meta.get("ticker", "")
+            link = meta.get("link", "")
+            
+            with st.expander(f"{i+1}. [{source}] {ticker} - {content[:80]}..."):
+                st.markdown(f"**Source:** {source}")
+                if ticker:
+                    st.markdown(f"**Ticker:** {ticker}")
+                if link:
+                    st.markdown(f"**Link:** [Open]({link})")
+                st.text_area("Content", content, height=150, key=f"content_{i}")
+                st.json(meta)
 
 with tab4:
     st.subheader("Timeline")
@@ -96,3 +114,13 @@ with tab4:
         st.write("Deal Events:")
         for d in deals:
             st.write(f"- {d.get('status', 'Unknown')}: {d.get('acquirer')} -> {d.get('target')}")
+
+# Sidebar for status
+with st.sidebar:
+    st.header("System Status")
+    model_name = findings.get("model", "unknown")
+    st.write(f"**Analysis Model:** {model_name}")
+    if model_name == "disabled":
+        st.warning("LLM is disabled. Enable it in env_var for better analysis.")
+    else:
+        st.success("LLM Enabled")

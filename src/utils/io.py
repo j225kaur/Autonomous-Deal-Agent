@@ -40,6 +40,11 @@ def write_text(path: str, text: str) -> None:
         f.write(text)
 
 def load_config() -> Dict[str, Any]:
+    from dotenv import load_dotenv
+    # Try loading from env_var or .env
+    load_dotenv("env_var")
+    load_dotenv(".env")
+    
     cfg = load_yaml("config/config.yaml")
     run = cfg.get("runtime", {})
     ing = cfg.get("ingestion", {})

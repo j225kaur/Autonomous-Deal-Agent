@@ -9,7 +9,7 @@ from typing import Dict, Any, List
 from datetime import datetime, timezone
 import os, traceback
 from langchain_core.documents import Document
-from pipeline.base import Base
+from src.pipeline.base import Base
 from src.storage.stores import FAISSVectorStore, RedisMemoryStore
 from src.utils.io import get_logger
 
@@ -53,7 +53,6 @@ class DataCollector(Base):
                 ]
                 prices_ctx = {t: {"last": 100.0, "chg5d": 0.02} for t in tickers}
                 market_history = {t: {"close": [100.0]*30, "volume": [1000000]*30} for t in tickers}
-        except Exception as e:
         except Exception as e:
             log.error(f"[DataAgent] fetch error: {e}")
             log.debug(traceback.format_exc())

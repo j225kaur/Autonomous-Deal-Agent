@@ -42,12 +42,18 @@ def fetch_yahoo_news(tickers: List[str], limit_per_ticker: int = 15) -> List[Dic
             tk = yf.Ticker(t)
             news = tk.news or []
             for item in news[:limit_per_ticker]:
+                # Handle nested content (new yfinance structure)
+                content = item.get("content", {})
+                title = content.get("title") or item.get("title", "")
+                summary = content.get("summary") or item.get("summary", "")
+                
                 out.append({
                     "ticker": t,
-                    "title": item.get("title", ""),
-                    "link": item.get("link", ""),
-                    "publisher": item.get("publisher", ""),
-                    "published": item.get("providerPublishTime", 0),
+                    "title": title,
+                    "summary": summary,
+                    "link": item.get("link", "") or content.get("clickThroughUrl", {}).get("url", ""),
+                    "publisher": item.get("publisher", "") or content.get("provider", {}).get("displayName", ""),
+                    "published": item.get("providerPublishTime", 0) or content.get("pubDate", ""),
                 })
         except Exception:
             # Ignore failures per ticker
@@ -154,9 +160,13 @@ def build_documents_from_sources(
     docs: List[Document] = []
     # Yahoo news
     for n in yahoo_news:
-        published_ts = int(n.get("published", 0))
-        published_iso = datetime.fromtimestamp(published_ts, tz=timezone.utc).isoformat() if published_ts else _now_iso()
-        text = n.get("title") or ""
+        published_ts = n.get("published", 0)
+        published_iso = datetime.fromtimestamp(published_ts, tz=timezone.utc).isoformat() if isinstance(published_ts, (int, float)) and published_ts > 0 else str(n.get("published", _now_iso()))
+        
+        title = n.get("title") or ""
+        summary = n.get("summary") or ""
+        text = f"{title}\n{summary}".strip()
+        
         is_dealish = _contains_deal_keywords(text)
         meta = {
             "source": "yahoo_news",
