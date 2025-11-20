@@ -1,5 +1,5 @@
 # Autonomous Deal Agent
-
+![Demo](.github/media/demo.gif)
 Autonomous Deal Agent is a small, modular pipeline that continuously (or on-demand) harvests market data and public filings, turns those items into searchable embeddings, runs retrieval + analysis to surface candidate M&A/deal signals, and produces a concise daily (or on-demand) deal intelligence report.
 
 What the system does (end-to-end):
