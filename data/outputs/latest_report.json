@@ -2,214 +2,101 @@
   "findings": {
     "model": "api:llama-3.1-8b-instant",
     "signal_scores": {
+      "SPY": {
+        "score": 0.0,
+        "components": {
+          "z_score": -1.7169676941865946,
+          "volatility": 0.1336333503020336,
+          "volume_shock": 1.1733861036187427
+        },
+        "explanation": []
+      },
       "AAPL": {
         "score": 0.0,
         "components": {
-          "z_score": 0.0,
-          "volatility": 0.0,
-          "volume_shock": 0.0
+          "z_score": -0.16797142670700996,
+          "volatility": 0.14667267285883834,
+          "volume_shock": 0.8310805286627392
         },
         "explanation": []
       },
       "MSFT": {
         "score": 0.0,
         "components": {
-          "z_score": 0.0,
-          "volatility": 0.0,
-          "volume_shock": 0.0
+          "z_score": -1.7575813676192469,
+          "volatility": 0.22750383537605554,
+          "volume_shock": 0.9126232565213126
         },
         "explanation": []
       },
       "NVDA": {
         "score": 0.0,
         "components": {
-          "z_score": 0.0,
-          "volatility": 0.0,
-          "volume_shock": 0.0
+          "z_score": -0.86841703467932,
+          "volatility": 0.4687031794590699,
+          "volume_shock": 1.2301391900224898
+        },
+        "explanation": []
+      },
+      "GOOGL": {
+        "score": 0.1,
+        "components": {
+          "z_score": 1.347747098505013,
+          "volatility": 0.33476269411135773,
+          "volume_shock": 1.8401734946489308
+        },
+        "explanation": [
+          "Elevated volume (1.8x avg)"
+        ]
+      },
+      "META": {
+        "score": 0.0,
+        "components": {
+          "z_score": -1.090486656459892,
+          "volatility": 0.4416371114251293,
+          "volume_shock": 0.9542849252085428
+        },
+        "explanation": []
+      },
+      "GS": {
+        "score": 0.0,
+        "components": {
+          "z_score": -0.25292206824414004,
+          "volatility": 0.2918622833742603,
+          "volume_shock": 0.8028354633642604
         },
         "explanation": []
       }
     },
-    "deals": [],
-    "trend_summary": "No M&A activity detected. The context mentions rumors of potential collaborations and acquisitions in various industries, but no concrete M&A deals involving AAPL, MSFT, and NVDA are announced."
+    "deals": [
+      {
+        "type": "acquisition",
+        "acquirer": "ING",
+        "target": "Goldman Sachs TFI",
+        "tickers": [
+          "ING",
+          "GS"
+        ],
+        "value_usd": "null",
+        "status": "agreement",
+        "evidence": "ING to acquire remaining 55% stake in Goldman Sachs TFI",
+        "source_link": "https://finance.yahoo.com/news/ing-acquire-remaining-55-stake-183002052.html"
+      }
+    ],
+    "trend_summary": "No M&A activity detected. ING is acquiring a 55% stake in Goldman Sachs TFI, taking full control of the Polish asset management business."
   },
   "retrieved_docs": [
     {
-      "page_content": "Nvidia\u2019s results ease concerns over AI boom\nThe company\u2019s stock price gained more than 2% in Wednesday\u2019s extended trading after the numbers came out.",
+      "page_content": "ING to acquire remaining 55% stake in Goldman Sachs TFI\nThe bank already owns a 45% stake in the company and will now take full control of the Polish asset management business.",
       "metadata": {
         "source": "yahoo_news",
-        "ticker": "AAPL",
-        "publisher": "PA Media: Money",
-        "link": "https://finance.yahoo.com/news/nvidia-results-ease-concerns-over-215114015.html",
-        "published": "2025-11-19T22:23:41Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Apple Stock Has Made Investors Rich for 20 Years \u2014 What Happens Next?\nApple stock has delivered massive gains for two decades, but can it keep climbing? Explore what analysts predict for the tech giant\u2019s future.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "AAPL",
-        "publisher": "GOBankingRates",
-        "link": "https://finance.yahoo.com/news/apple-stock-made-investors-rich-215508166.html",
-        "published": "2025-11-19T21:55:08Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Nvidia's earnings attest to its leadership in the AI race. By the numbers\nNvidia reported more eye-catching numbers for its fiscal third quarter Wednesday, with net income jumping 65% and revenue increasing 62% from a year earlier.  Last month, Nvidia became the first public company to reach a market capitalization of $5 trillion.  The ravenous appetite for the Silicon Valley company's chips is the main reason that the company\u2019s stock price has increased so rapidly since early 2023.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "AAPL",
-        "publisher": "Associated Press Finance",
-        "link": "https://finance.yahoo.com/news/nvidias-earnings-attest-leadership-ai-213805157.html",
-        "published": "2025-11-19T21:38:05Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Stocks steadier before key Nvidia results as oil slides\nStocks steadied Wednesday following heavy losses as investors awaited Nvidia earnings for further clues about whether AI-fueled valuations are justified.\"The selling pressure had moderated from Monday (but) investors were unwilling to add to their overall exposure ahead of tonight's earnings update from chip giant Nvidia,\" said David Morrison, senior market analyst at Trade Nation.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "AAPL",
-        "publisher": "AFP",
-        "link": "https://finance.yahoo.com/news/asian-markets-bounce-nvidia-takes-025415956.html",
-        "published": "2025-11-19T21:19:34Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Nvidia stock soars after Q3 earnings, forecasts top estimates with sales for AI chips 'off the charts'\nNvidia reported its third quarter earnings after the bell on Wednesday.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "MSFT",
-        "publisher": "Yahoo Finance",
-        "link": "https://finance.yahoo.com/news/nvidia-stock-soars-after-q3-earnings-forecasts-top-estimates-with-sales-for-ai-chips-off-the-charts-153409984.html",
-        "published": "2025-11-17T15:34:09Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Nvidia\u2019s $24B AI deal blitz has Wall Street asking questions about \u2018murky\u2019 circular investments\nNvidia has invested $23.7 billion in AI companies so far in 2025.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "MSFT",
-        "publisher": "Yahoo Finance",
-        "link": "https://finance.yahoo.com/news/nvidias-24b-ai-deal-blitz-has-wall-street-asking-questions-about-murky-circular-investments-110039309.html",
-        "published": "2025-11-19T11:00:39Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Nvidia earnings: Wall Street sighs with relief after AI wave doesn\u2019t crash\nAmid a blackout of data due to the government shutdown, the $5tn chipmaker\u2019s report took on wider significance",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "MSFT",
-        "publisher": "The Guardian",
-        "link": "https://finance.yahoo.com/news/nvidia-earnings-wall-street-sighs-234731646.html",
-        "published": "2025-11-19T23:47:31Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Jeff Auxier's Strategic Moves: Fiserv Inc. Takes Center Stage with 0.24% Portfolio Impact\nInsightful Analysis of Jeff Auxier (Trades, Portfolio)'s Third Quarter 2025 13F Filing",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "MSFT",
-        "publisher": "GuruFocus.com",
-        "link": "https://finance.yahoo.com/news/jeff-auxiers-strategic-moves-fiserv-230032565.html",
-        "published": "2025-11-19T23:00:32Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Stock market today: Dow, S&P 500, Nasdaq futures jump after Nvidia's earnings beat with jobs report on deck\nStock futures jumped following Nvidia's strong earnings report in a rebound from a four-day losing streak following Nvidia's earnings beat.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Finance",
-        "link": "https://finance.yahoo.com/news/live/stock-market-today-dow-sp-500-nasdaq-futures-jump-after-nvidias-earnings-beat-with-jobs-report-on-deck-233508921.html",
-        "published": "2025-11-19T23:35:08Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Before you buy Nvidia stock, here\u2019s what one expert wants you to know\nThinking of buying Nvidia? A recent survey shows more people are investing in the market and, in some cases, favoring individual stocks over ETFs. Is it smart to bet on one stock?",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Personal Finance",
-        "link": "https://finance.yahoo.com/personal-finance/investing/article/before-you-buy-nvidia-stock-heres-what-one-expert-wants-you-to-know-173538406.html",
-        "published": "2025-11-19T17:35:38Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Stock market today: Dow, S&P 500, Nasdaq rise as stocks pause sell-off streak before Nvidia earnings\nInvestors prepared for Nvidia earnings, following several days of losses for stocks.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Finance",
-        "link": "https://finance.yahoo.com/news/live/stock-market-today-dow-sp-500-nasdaq-rise-as-stocks-pause-sell-off-streak-before-nvidia-earnings-210332709.html",
-        "published": "2025-11-19T21:03:32Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Qualcomm to open engineering hub in Saudi Arabia, part of a series of AI deals in kingdom\nQualcomm is building an AI hub in Saudi Arabia.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Finance",
-        "link": "https://finance.yahoo.com/news/qualcomm-to-open-engineering-hub-in-saudi-arabia-part-of-a-series-of-ai-deals-in-kingdom-180008935.html",
-        "published": "2025-11-19T18:00:08Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Nvidia earnings watch: What this Goldman analyst expects\nNvidia (NVDA) stock is in focus ahead of the artificial intelligence (AI) chipmaker's third quarter earnings report. Goldman Sachs senior equity analyst Jim Schneider shares what he's expecting from Nvidia's earnings print. Watch the video above to hear more. To watch more expert insights and analysis on the latest market action, check out more Market Catalysts.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Finance Video",
-        "link": "https://finance.yahoo.com/video/nvidia-earnings-watch-goldman-analyst-164308045.html",
-        "published": "2025-11-19T16:43:08Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Nvidia to report Q3 earnings: What Wall Street is watching\nNvidia's (NVDA) third quarter earnings results are due out after the closing bell on Wednesday. With Wall Street chatter of an AI bubble forming and Nvidia CEO Jensen Huang's promise of $500 billion in AI chip demand, what is at stake with this quarter's earnings release? Yahoo Finance markets and data editor Jared Blikre takes a look at Wall Street's expectations on Nvidia, while Yahoo Finance tech editor Dan Howley explains the key metrics that Wall Street will be looking for in the release. To watch more expert insights and analysis on the latest market action, check out more&nbsp;Morning Brief.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Finance Video",
-        "link": "https://finance.yahoo.com/video/nvidia-report-q3-earnings-wall-141828099.html",
-        "published": "2025-11-19T14:18:28Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "AMD, Intel and TSMC brace for Nvidia earnings: trending stocks\nStocks of chipmakers including AMD (AMD), Intel (INTC) and TSMC (TSM, TSMC.BA) waver as markets hold their breath ahead of Nvidia (NVDA)'s earnings report. Cloudflare (NET) ticks up despite a widespread outage. Tesla (TSLA) challenger Xiaomi (1810.HK, XIACY, XIACF, 3CP.F, 1810N.MX) sees shares plummet - even as its EV arm turns an operating profit for the first time. Following a crisis sparked by an accounting error in its North American division, British high-street retailer WH Smith (SMWH.L) pushes for a turnaround. And Doordash (DASH) delivers some news - including a new partnership. For more live coverage of the markets, watch the full episode of Market Sunrise and visit Yahoo Finance.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Finance Video",
-        "link": "https://finance.yahoo.com/video/amd-intel-tsmc-brace-nvidia-131318193.html",
-        "published": "2025-11-19T13:13:18Z",
-        "is_dealish": false
-      }
-    },
-    {
-      "page_content": "Why Nvidia proves the AI boom isn\u2019t a bubble\nYou can catch Trader Talk on Apple Podcasts, Spotify, YouTube, or wherever you get your podcasts. Trader Talk with Kenny Polcari on Yahoo Finance delivers expert analysis and actionable insights, empowering you to navigate market volatility and secure your financial future. This post was written by Langston Sessoms.",
-      "metadata": {
-        "source": "yahoo_news",
-        "ticker": "NVDA",
-        "publisher": "Yahoo Finance Video",
-        "link": "https://finance.yahoo.com/video/why-nvidia-proves-ai-boom-110033226.html",
-        "published": "2025-11-19T11:00:33Z",
-        "is_dealish": false
+        "ticker": "GS",
+        "publisher": "Private Banker International",
+        "link": "https://finance.yahoo.com/news/ing-acquire-remaining-55-stake-183002052.html",
+        "published": "2025-11-19T18:30:02Z",
+        "is_dealish": true
       }
     }
   ],
-  "summary": "\u2022 \u2022 Nvidia\u2019s results ease concerns over AI boom The company\u2019s stock price gained more than 2% in Wednesday\u2019s extended trading after the numbers came out.\n\u2022 \u2022 Apple Stock Has Made Investors Rich for 20 Years \u2014 What Happens Next?\n\u2022 Explore what analysts predict for the tech giant\u2019s future.\n\u2022 Last month, Nvidia became the first public company to reach a market capitalization of $5 trillion.\n\u2022 The ravenous appetite for the Silicon Valley company's chips is the main reason that the company\u2019s stock price has increased so rapidly since early 2023."
+  "summary": "\u2022 \u2022 Acquisition: ING \u2192 Goldman Sachs TFI (null, agreement)"
 }

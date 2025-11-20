@@ -71,8 +71,8 @@ def fetch_prices_snapshot(tickers: List[str]) -> Dict[str, Any]:
             if df is None or df.empty:
                 continue
             close = df["Close"].dropna()
-            last = float(close.iloc[-1])
-            ch5 = float((last / close.iloc[0] - 1.0)) if len(close) > 1 else 0.0
+            last = float(close.iloc[-1].item())
+            ch5 = float((last / close.iloc[0].item() - 1.0)) if len(close) > 1 else 0.0
             ctx[t] = {"last": last, "chg5d": ch5}
         except Exception:
             continue
@@ -83,18 +83,38 @@ def fetch_price_history(tickers: List[str], days: int = 30) -> Dict[str, Dict[st
     Fetch historical price and volume data for signal analysis.
     Returns: {ticker: {'close': [...], 'volume': [...]}}
     """
+    import logging
+    log = logging.getLogger(__name__)
+    
     out: Dict[str, Dict[str, List[float]]] = {}
     for t in tickers:
         try:
             df = yf.download(t, period=f"{days}d", interval="1d", progress=False, auto_adjust=True)
             if df is None or df.empty:
+                log.warning(f"No price history data for {t}")
                 continue
+            
+            # yfinance returns MultiIndex columns like ('Close', 'AAPL')
+            # We need to access the specific ticker column
+            if isinstance(df.columns, pd.MultiIndex):
+                # MultiIndex format: ('Close', 'AAPL')
+                close_col = df[("Close", t)]
+                volume_col = df[("Volume", t)]
+            else:
+                # Simple column names (shouldn't happen with single ticker, but handle it)
+                close_col = df["Close"]
+                volume_col = df["Volume"]
+            
             # Ensure we have simple lists of floats
             out[t] = {
-                "close": df["Close"].dropna().tolist(),
-                "volume": df["Volume"].dropna().tolist()
+                "close": close_col.dropna().tolist(),
+                "volume": volume_col.dropna().tolist()
             }
-        except Exception:
+            log.info(f"Fetched {len(out[t]['close'])} days of price history for {t}")
+        except Exception as e:
+            log.error(f"Failed to fetch price history for {t}: {e}")
+            import traceback
+            log.debug(traceback.format_exc())
             continue
     return out
 

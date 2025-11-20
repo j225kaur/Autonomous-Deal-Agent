@@ -55,6 +55,12 @@ UNACCEPTABLE (HALLUCINATION):
 ✗ "Various industries"
 ✗ Generic speculation not in sources
 ✗ Deals with no specific companies mentioned
+
+TREND SUMMARY RULES:
+- If no deal-related content exists → "No M&A activity detected in recent news."
+- NEVER mention "rumors", "potential", "collaborations" unless those exact words appear in sources
+- NEVER add industry-wide narratives not supported by documents
+- Be factual and boring when there's no deal activity
 """
 
 def _format_ctx(retrieved: List[Dict[str, Any]]) -> str:
@@ -109,6 +115,38 @@ def _validate_deals(deals: List[Dict[str, Any]], retrieved_docs: List[Dict[str, 
     
     return valid_deals
 
+def _validate_trend_summary(summary: str, retrieved_docs: List[Dict[str, Any]], has_deals: bool) -> str:
+    """Validate and sanitize trend_summary to prevent hallucination."""
+    if not summary:
+        return "No M&A activity detected in recent news."
+    
+    summary_lower = summary.lower()
+    
+    # If no deals, summary should not mention deal-related terms
+    if not has_deals:
+        # Check for hallucinated deal language
+        hallucination_terms = [
+            "rumor", "rumors", "potential", "collaboration", "collaborations",
+            "acquisition", "acquisitions", "merger", "mergers", "deal", "deals",
+            "m&a", "strategic transaction", "buyout", "takeover"
+        ]
+        
+        # Verify each term appears in actual docs
+        all_content = " ".join([doc.get("page_content", "").lower() for doc in retrieved_docs])
+        
+        for term in hallucination_terms:
+            if term in summary_lower and term not in all_content:
+                # Term in summary but not in docs = hallucination
+                return "No M&A activity detected in recent news."
+    
+    # Additional check: if summary mentions "rumors" but no doc has is_dealish=true
+    if "rumor" in summary_lower:
+        has_dealish_docs = any(doc.get("metadata", {}).get("is_dealish", False) for doc in retrieved_docs)
+        if not has_dealish_docs:
+            return "No M&A activity detected in recent news."
+    
+    return summary
+
 def analyze_with_llm(query: str, retrieved: List[Dict[str, Any]]) -> Dict[str, Any]:
     llm = get_chat_model()
     if not llm:
@@ -144,9 +182,13 @@ def analyze_with_llm(query: str, retrieved: List[Dict[str, Any]]) -> Dict[str, A
             original_count = len(data.get("deals", []))
             data["deals"] = _validate_deals(data.get("deals", []), retrieved)
             
-            # If all deals were filtered out, update summary
-            if original_count > 0 and len(data["deals"]) == 0:
-                data["trend_summary"] = "No verified M&A activity found in sources."
+            # VALIDATE: Sanitize trend_summary
+            has_deals = len(data["deals"]) > 0
+            data["trend_summary"] = _validate_trend_summary(
+                data.get("trend_summary", ""),
+                retrieved,
+                has_deals
+            )
             
             return data
     except Exception:
