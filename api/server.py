@@ -7,8 +7,9 @@ FastAPI server exposing:
 from __future__ import annotations
 from typing import Dict, Any
 import networkx as nx
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Response, BackgroundTasks
 from api.schemas import RunConfig, RunResponse
+from api.metrics import metrics
 from src.core.orchestrator import run_once
 from src.utils.io import load_config
 
@@ -17,6 +18,23 @@ app = FastAPI(title="Autonomous Deal Intelligence Agent")
 @app.get("/health")
 def health() -> Dict[str, Any]:
     return {"ok": True}
+
+@app.get("/metrics")
+def get_metrics():
+    return Response(content=metrics.generate_prometheus_output(), media_type="text/plain")
+
+@app.post("/webhook/sec")
+def sec_webhook(payload: Dict[str, Any], background_tasks: BackgroundTasks):
+    """
+    Trigger pipeline on new SEC filing.
+    Payload expected: {"ticker": "AAPL", "form": "8-K", ...}
+    """
+    ticker = payload.get("ticker")
+    if ticker:
+        cfg = {"tickers": [ticker], "use_sec": True, "top_k": 5}
+        background_tasks.add_task(run_once, cfg)
+        return {"status": "queued", "ticker": ticker}
+    return {"status": "ignored", "reason": "no ticker"}
 
 @app.post("/run_report", response_model=RunResponse)
 def run_report(cfg: RunConfig = Body(default=RunConfig())) -> Dict[str, Any]:

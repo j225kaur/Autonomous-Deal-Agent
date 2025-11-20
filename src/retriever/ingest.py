@@ -11,6 +11,7 @@ from src.data_ingestion.yahoo_sec import (
     fetch_yahoo_news,
     fetch_prices_snapshot,
     fetch_sec_filings,
+    fetch_price_history,
 )
 
 build_documents_from_sources = _build_docs
@@ -20,4 +21,5 @@ __all__ = [
     "fetch_yahoo_news",
     "fetch_prices_snapshot",
     "fetch_sec_filings",
+    "fetch_price_history",
 ]

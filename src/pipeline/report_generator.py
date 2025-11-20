@@ -52,6 +52,13 @@ class ReportGenerator(Base):
         report["json"]["findings"] = findings
         report["json"]["summary"] = final_text
         report["text"] = final_text
+        
+        # Save to file for dashboard
+        import os
+        import json
+        os.makedirs("data/outputs", exist_ok=True)
+        with open("data/outputs/latest_report.json", "w") as f:
+            json.dump(report["json"], f, indent=2, default=str)
 
         self.after_run(state)
         return state

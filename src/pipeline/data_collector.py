@@ -10,8 +10,7 @@ from datetime import datetime, timezone
 import os, traceback
 from langchain_core.documents import Document
 from pipeline.base import Base
-from src.memory.redis_memory import RedisMemory
-from src.memory.vector_memory import VectorMemory
+from src.storage.stores import FAISSVectorStore, RedisMemoryStore
 from src.utils.io import get_logger
 
 from src.retriever.ingest import (
@@ -19,6 +18,7 @@ from src.retriever.ingest import (
     fetch_yahoo_news,
     fetch_prices_snapshot,
     fetch_sec_filings,
+    fetch_price_history,
 )
 __all__ = ["build_documents_from_sources","fetch_yahoo_news","fetch_prices_snapshot","fetch_sec_filings"]
 log = get_logger(__name__)
@@ -26,8 +26,8 @@ log = get_logger(__name__)
 class DataCollector(Base):
     def __init__(self):
         super().__init__("data_agent")
-        self.short = RedisMemory(self.name, max_entries=50)
-        self.long = VectorMemory(self.name)
+        self.short = RedisMemoryStore(self.name, max_entries=50)
+        self.long = FAISSVectorStore(index_dir=None)
 
     def __call__(self, state: Dict[str, Any]) -> Dict[str, Any]:
         self.before_run(state)
@@ -39,11 +39,12 @@ class DataCollector(Base):
         ciks: List[str] = cfg.get("ciks", [])
         offline: bool = os.getenv("OFFLINE_MODE", "false").lower() in {"1", "true", "yes"}
 
-        yahoo_news, prices_ctx, sec_items = [], {}, []
+        yahoo_news, prices_ctx, sec_items, market_history = [], {}, [], {}
         try:
             if not offline:
                 yahoo_news = fetch_yahoo_news(tickers, limit_per_ticker=news_limit)
                 prices_ctx = fetch_prices_snapshot(tickers)
+                market_history = fetch_price_history(tickers, days=30)
                 sec_items = fetch_sec_filings(ciks) if (use_sec and ciks) else []
             else:
                 yahoo_news = [
@@ -51,6 +52,8 @@ class DataCollector(Base):
                     {"ticker": tickers[1], "title": f"{tickers[1]} announces strategic transaction with ABC", "link":"", "publisher":"offline", "published": 0},
                 ]
                 prices_ctx = {t: {"last": 100.0, "chg5d": 0.02} for t in tickers}
+                market_history = {t: {"close": [100.0]*30, "volume": [1000000]*30} for t in tickers}
+        except Exception as e:
         except Exception as e:
             log.error(f"[DataAgent] fetch error: {e}")
             log.debug(traceback.format_exc())
@@ -75,6 +78,7 @@ class DataCollector(Base):
             "tickers": tickers,
             "news_count": len(yahoo_news),
             "sec_count": len(sec_items),
+            "market_history": market_history,
         }
         state["documents_added"] = len(docs)
 

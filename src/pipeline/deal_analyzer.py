@@ -11,9 +11,9 @@ import re
 
 from langchain_core.documents import Document
 from pipeline.base import Base
-from src.memory.redis_memory import RedisMemory
-from src.memory.vector_memory import VectorMemory
+from src.storage.stores import FAISSVectorStore, RedisMemoryStore
 from src.models.adapters import get_chat_model
+from src.analysis.signal_model import SignalModel
 
 
 DEAL_SCHEMA_HINT = """Return ONLY JSON:
@@ -81,8 +81,9 @@ RULES_RX = re.compile(r"(merger|acquisition|buyout|takeover|spin[- ]?off|SPAC)",
 class DealAnalyzer(Base):
     def __init__(self):
         super().__init__("analysis_agent")
-        self.short = RedisMemory(self.name, max_entries=50)
-        self.long = VectorMemory(self.name)
+        self.short = RedisMemoryStore(self.name, max_entries=50)
+        self.long = FAISSVectorStore(index_dir=None) # uses default
+        self.signal_model = SignalModel()
 
     def _rule_based(self, texts: List[str]) -> Dict[str, Any]:
         hits = []
@@ -98,9 +99,8 @@ class DealAnalyzer(Base):
 
         retrieved_serializable = state.get("retrieved_docs") or []
         if not retrieved_serializable:
-            retr = self.long.retriever(k=top_k)
             query = "Recent mergers, acquisitions, spin-offs or strategic deals"
-            docs = retr.invoke(query)
+            docs = self.long.search(query, k=top_k)
             for d in docs[:top_k]:
                 meta = d.metadata if isinstance(d.metadata, dict) else {}
                 retrieved_serializable.append({
@@ -139,7 +139,30 @@ class DealAnalyzer(Base):
 
         chat = get_chat_model()
         model_name = getattr(chat, "model_name", "disabled")
-        findings_structured = {"model": model_name, **llm_out}
+        
+        # --- Signal Analysis ---
+        raw_items = state.get("raw_items", {})
+        market_history = raw_items.get("market_history", {})
+        tickers = raw_items.get("tickers", [])
+        
+        signal_scores = {}
+        for t in tickers:
+            hist = market_history.get(t, {})
+            # Collect news text for this ticker from retrieved docs
+            ticker_news = [d["page_content"] for d in retrieved_serializable if d["metadata"].get("ticker") == t]
+            
+            score_obj = self.signal_model.score_ticker(t, hist, ticker_news)
+            signal_scores[t] = {
+                "score": score_obj.total_score,
+                "components": score_obj.components,
+                "explanation": score_obj.explanation
+            }
+
+        findings_structured = {
+            "model": model_name,
+            "signal_scores": signal_scores,
+            **llm_out
+        }
 
         compact_note = findings_structured.get("trend_summary") or (
             findings_structured.get("deals") and str(findings_structured["deals"][0])

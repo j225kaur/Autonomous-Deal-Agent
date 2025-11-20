@@ -10,6 +10,8 @@ LangGraph supervisor: wires DataAgent → Retrieve → AnalysisAgent → ReportA
 from __future__ import annotations
 from typing import Dict, Any, List
 import os
+import time
+from api.metrics import metrics
 
 from langgraph.graph import StateGraph, END
 
@@ -17,7 +19,8 @@ from src.core.state import GraphState
 from pipeline.data_collector import DataCollector
 from pipeline.deal_analyzer import DealAnalyzer
 from pipeline.report_generator import ReportGenerator
-from src.retriever.store import VectorStore
+from pipeline.report_generator import ReportGenerator
+from src.storage.stores import FAISSVectorStore
 
 
 DEAL_QUERY = (
@@ -71,7 +74,7 @@ def retrieve_step(state: Dict[str, Any]) -> Dict[str, Any]:
             cleaned = []
     else:
         # FAISS/vector mode
-        vs = VectorStore(index_dir=index_dir)
+        vs = FAISSVectorStore(index_dir=index_dir)
         retrieved = []
         for q in queries:
             docs = vs.search(q, k=top_k)
@@ -140,4 +143,13 @@ def run_once(config: Dict[str, Any]) -> GraphState:
     else:
         app = build_graph().compile()
 
-    return app.invoke(initial)
+    start_time = time.time()
+    metrics.inc("pipeline_runs_total")
+    try:
+        result = app.invoke(initial)
+        duration = time.time() - start_time
+        metrics.observe("pipeline_run_duration_seconds", duration)
+        return result
+    except Exception as e:
+        metrics.inc("pipeline_errors_total")
+        raise e

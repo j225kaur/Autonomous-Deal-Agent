@@ -72,6 +72,26 @@ def fetch_prices_snapshot(tickers: List[str]) -> Dict[str, Any]:
             continue
     return ctx
 
+def fetch_price_history(tickers: List[str], days: int = 30) -> Dict[str, Dict[str, List[float]]]:
+    """
+    Fetch historical price and volume data for signal analysis.
+    Returns: {ticker: {'close': [...], 'volume': [...]}}
+    """
+    out: Dict[str, Dict[str, List[float]]] = {}
+    for t in tickers:
+        try:
+            df = yf.download(t, period=f"{days}d", interval="1d", progress=False, auto_adjust=True)
+            if df is None or df.empty:
+                continue
+            # Ensure we have simple lists of floats
+            out[t] = {
+                "close": df["Close"].dropna().tolist(),
+                "volume": df["Volume"].dropna().tolist()
+            }
+        except Exception:
+            continue
+    return out
+
 def _sec_company_submissions(cik: str) -> Optional[Dict[str, Any]]:
     """
     Download SEC submissions for a CIK using the public JSON endpoint.
