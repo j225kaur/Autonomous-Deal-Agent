@@ -156,23 +156,6 @@ Below is a compact description of the runtime flow and a Mermaid diagram you can
 
 One-line summary: DataCollector -> FAISS (long-term) + Redis (short-term) -> DealAnalyzer -> ReportGenerator -> output
 
-Mermaid diagram:
-
-```mermaid
-flowchart LR
-	subgraph External
-		A[YFinance / Yahoo News] -->|news/prices| Data
-		B[SEC JSON / Filings] -->|filings| Data
-		C[LLM provider (optional)] -->|generation| Analysis
-	end
-
-	Data[DataCollector] -->|Documents / upsert| FAISS[FAISS (embeddings)]
-	Data -->|short note| Redis[Redis short-term memory]
-	FAISS -->|retrieval| Analysis[DealAnalyzer]
-	Analysis -->|findings| Report[ReportGenerator]
-	Report -->|report.json + text| Output[data/outputs/latest_report.json]
-```
-
 ASCII fallback:
 
 - External sources -> DataCollector
